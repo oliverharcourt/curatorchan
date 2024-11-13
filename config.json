@@ -1,0 +1,28 @@
+{
+    "preprocessing": {
+        "model_path": "anime_recommender/models/animeBERT",
+        "embedding_dim": 768
+    },
+    "dataset": "data/raw/mal_anime_data.json",
+    "vector_database": {
+        "embedded_dataset_path": "data/processed/mal_anime_dataset_embedded.json",
+        "collection_name": "anime_collection",
+        "host": "localhost",
+        "port": "19530",
+        "text_embedding_dim": 768,
+        "genres_dim": 76,
+        "studios_dim": 75
+
+    },
+    "recommender": {
+        "MAL_ACCESS_TOKEN": "${MAL_ACCESS_TOKEN}",
+        "nprobe": {
+            "text": 512,
+            "other": 64
+        },
+        "BASE_URL": "https://api.myanimelist.net/v2"
+    }
+    
+
+    
+}
