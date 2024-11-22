@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 discord-py = "^2.4.0"
-anime-recommender = {path = "../anime_recommender"}
+anime-recommender = {path = "../anime_recommender/dist/anime_recommender-0.2.0-py3-none-any.whl"}
 
 
 [build-system]
