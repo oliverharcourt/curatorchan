@@ -7,8 +7,6 @@
     "vector_database": {
         "embedded_dataset_path": "data/processed/mal_anime_dataset_embedded.json",
         "collection_name": "anime_collection",
-        "host": "localhost",
-        "port": "19530",
         "text_embedding_dim": 768,
         "genres_dim": 76,
         "studios_dim": 75
