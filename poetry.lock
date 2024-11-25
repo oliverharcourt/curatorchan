@@ -155,12 +155,12 @@ frozenlist = ">=1.1.0"
 
 [[package]]
 name = "anime-recommender"
-version = "0.3.0"
+version = "0.4.0"
 description = "A simple recommendation system for Anime."
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "anime_recommender-0.3.0-py3-none-any.whl", hash = "sha256:7ee515b59c399ca6e36a8064d7a71669057f82b7d031e3bd05870cc613409ba0"},
+    {file = "anime_recommender-0.4.0-py3-none-any.whl", hash = "sha256:af733a050173a73f8274fa3167868f977a08636f2ba522d57d75e5692c11d78a"},
 ]
 
 [package.dependencies]
@@ -177,7 +177,7 @@ transformers = ">=4.45.2,<5.0.0"
 
 [package.source]
 type = "file"
-url = "../anime_recommender/dist/anime_recommender-0.3.0-py3-none-any.whl"
+url = "../anime_recommender/dist/anime_recommender-0.4.0-py3-none-any.whl"
 
 [[package]]
 name = "attrs"
@@ -2242,20 +2242,20 @@ optree = ["optree (>=0.9.1)"]
 
 [[package]]
 name = "tqdm"
-version = "4.67.0"
+version = "4.67.1"
 description = "Fast, Extensible Progress Meter"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "tqdm-4.67.0-py3-none-any.whl", hash = "sha256:0cd8af9d56911acab92182e88d763100d4788bdf421d251616040cc4d44863be"},
-    {file = "tqdm-4.67.0.tar.gz", hash = "sha256:fe5a6f95e6fe0b9755e9469b77b9c3cf850048224ecaa8293d7d2d31f97d869a"},
+    {file = "tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2"},
+    {file = "tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2"},
 ]
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [package.extras]
-dev = ["pytest (>=6)", "pytest-cov", "pytest-timeout", "pytest-xdist"]
+dev = ["nbval", "pytest (>=6)", "pytest-asyncio (>=0.24)", "pytest-cov", "pytest-timeout"]
 discord = ["requests"]
 notebook = ["ipywidgets (>=6)"]
 slack = ["slack-sdk"]
@@ -2600,4 +2600,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "211a738c75eb3e70db58473915633b6b3743dcd289a2b3492c61bb1557895952"
+content-hash = "10729f6d3212c5104bd7cb0fa03b0e4fb83cc291b88e92cd8983fcfd9f970a13"
