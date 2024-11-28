@@ -124,7 +124,7 @@ def load_secrets():
     if env == "dev":
         return
     if env == "production":
-        path = "/run/secrets/.secrets"
+        path = "/run/secrets/keys"
         if not os.path.exists(path):
             raise FileNotFoundError("Secrets file not found.")
         load_dotenv(dotenv_path=path)
