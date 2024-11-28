@@ -1,10 +1,12 @@
 import os
 from typing import Literal
-import pandas as pd
 
 import discord
-from anime_recommender.main import AnimeRecommender
+import pandas as pd
 from discord.ext import commands
+from dotenv import load_dotenv
+
+from anime_recommender.main import AnimeRecommender
 
 DESCRIPTION = """
 Curator-chan is a Discord bot that recommends anime to users.
@@ -117,5 +119,19 @@ async def recommend(
     await interaction.followup.send(embeds=recommendations_embeds, ephemeral=True)
 
 
+def load_secrets():
+    env = os.getenv("ENV")
+    if env == "dev":
+        return
+    if env == "production":
+        path = "/run/secrets/.secrets"
+        if not os.path.exists(path):
+            raise FileNotFoundError("Secrets file not found.")
+        load_dotenv(dotenv_path=path)
+    else:
+        raise ValueError("ENV must be set to 'dev' or 'production'.")
+
+
+load_secrets()
 print("Starting bot...")
 bot.run(os.getenv("DISCORD_TOKEN"))
