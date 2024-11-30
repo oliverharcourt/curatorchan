@@ -166,3 +166,6 @@ data/
 
 # Mac OS
 .DS_Store
+
+# Secrets
+.secrets
