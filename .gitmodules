@@ -1,0 +1,3 @@
+[submodule "anime-recommender"]
+	path = anime-recommender
+	url = https://github.com/oliverharcourt/anime-recommender
