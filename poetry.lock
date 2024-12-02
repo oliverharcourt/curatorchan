@@ -158,26 +158,25 @@ name = "anime-recommender"
 version = "0.5.0"
 description = "A simple recommendation system for Anime."
 optional = false
-python-versions = ">=3.10,<4.0"
-files = [
-    {file = "anime_recommender-0.5.0-py3-none-any.whl", hash = "sha256:bcc99d456de6ae72285d81e7dabeb2e48faefedb3a0955d71cc28eacc34347c6"},
-]
+python-versions = "^3.10"
+files = []
+develop = false
 
 [package.dependencies]
-accelerate = ">=1.1.1,<2.0.0"
-clean-text = {version = ">=0.6.0,<0.7.0", extras = ["gpl"]}
+accelerate = "^1.1.1"
+clean-text = {version = "^0.6.0", extras = ["gpl"]}
 numpy = "<2.0"
-pandas = ">=2.2.3,<3.0.0"
-pymilvus = ">=2.4.8,<3.0.0"
-requests = ">=2.32.3,<3.0.0"
-scikit-learn = ">=1.5.2,<2.0.0"
-thefuzz = ">=0.22.1,<0.23.0"
+pandas = "^2.2.3"
+pymilvus = "^2.4.8"
+requests = "^2.32.3"
+scikit-learn = "^1.5.2"
+thefuzz = "^0.22.1"
 torch = "2.2.0"
-transformers = ">=4.45.2,<5.0.0"
+transformers = "^4.45.2"
 
 [package.source]
-type = "file"
-url = "../anime_recommender/dist/anime_recommender-0.5.0-py3-none-any.whl"
+type = "directory"
+url = "curatorchan/anime-recommender"
 
 [[package]]
 name = "attrs"
@@ -2560,4 +2559,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "16dfc5f46e842551771d531a0fedbbbfd40614d1069d7e2be80ff2c0e5b9cef8"
+content-hash = "63733b6925e814c699acb290696568e500257217ed2edae28441f2602a6b5ffa"
