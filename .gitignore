@@ -169,3 +169,6 @@ data/
 
 # Secrets
 .secrets
+
+# Milvus volumes
+volumes/
