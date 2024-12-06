@@ -34,18 +34,21 @@ def generate_recommendations(mode: str, search_string: str) -> pd.DataFrame:
     if mode == "user":
         result = AnimeRecommender(
             config_path="config.json",
+        ).run(
             search_str=search_string,
             anime_mode=False,
             limit=10,
-        ).run()
+        )
 
     elif mode == "anime":
         result = AnimeRecommender(
             config_path="config.json",
+        ).run(
+            autoselect=True,
             search_str=search_string,
             anime_mode=True,
             limit=10,
-        ).run(autoselect=True)
+        )
 
     else:
         raise ValueError("Invalid mode. Choose 'user' or 'anime'.")
