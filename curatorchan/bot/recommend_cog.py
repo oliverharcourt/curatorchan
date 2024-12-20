@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 import discord
 import pandas as pd
-from anime_recommender.main import AnimeRecommender
+from anime_recommender.recommender import AnimeRecommender
 from discord import app_commands
 from discord.ext import commands
 
