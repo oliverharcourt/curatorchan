@@ -56,7 +56,7 @@ class RecommendationCog(commands.Cog):
         result = recommender.run(
             autoselect=True if mode == "anime" else False,
             search_str=search_string,
-            anime_mode=True,
+            anime_mode=True if mode == "anime" else False,
             limit=10,
         )
 
