@@ -19,16 +19,6 @@ def load_secrets():
         raise ValueError("ENV must be set to 'dev' or 'production'.")
 
 
-DESCRIPTION = """
-Curator-chan is a Discord bot that recommends anime to users.
-"""
-
-intents = discord.Intents.default()
-intents.message_content = True
-
-bot = commands.Bot(command_prefix="!", description=DESCRIPTION, intents=intents)
-
-
 async def load_cogs():
     await bot.load_extension("recommend_cog")
 
@@ -40,4 +30,13 @@ async def main():
 
 if __name__ == "__main__":
     load_secrets()
+    DESCRIPTION = """
+    Curator-chan is a Discord bot that recommends anime to users.
+    """
+
+    intents = discord.Intents.default()
+    intents.message_content = True
+
+    bot = commands.Bot(command_prefix="uwu", description=DESCRIPTION, intents=intents)
+
     asyncio.run(main())
