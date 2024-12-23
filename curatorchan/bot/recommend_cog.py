@@ -1,16 +1,20 @@
+import logging
+import time
 from typing import Literal, Optional
 
 import discord
 import pandas as pd
+from anime_recommender import exceptions
 from anime_recommender.recommender import AnimeRecommender
 from discord import app_commands
 from discord.ext import commands
 
 
 class RecommendationCog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, logger: logging.Logger):
         self.bot = bot
         self.recommender = AnimeRecommender(config_path="config.json")
+        self.logger = logger
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -46,23 +50,15 @@ class RecommendationCog(commands.Cog):
     ) -> pd.DataFrame:
         result = None
 
-        if mode == "user":
-            result = recommender.run(
-                search_str=search_string,
-                anime_mode=False,
-                limit=10,
-            )
-
-        elif mode == "anime":
-            result = recommender.run(
-                autoselect=True,
-                search_str=search_string,
-                anime_mode=True,
-                limit=10,
-            )
-
-        else:
+        if mode != "user" and mode != "anime":
             raise ValueError("Invalid mode. Choose 'user' or 'anime'.")
+
+        result = recommender.run(
+            autoselect=True if mode == "anime" else False,
+            search_str=search_string,
+            anime_mode=True,
+            limit=10,
+        )
 
         dataset = pd.read_json("data/raw/mal_anime_data.json", orient="records")
 
@@ -116,9 +112,38 @@ class RecommendationCog(commands.Cog):
 
         recommender = AnimeRecommender(config_path="config.json")
 
-        recommendations = self.generate_recommendations(
-            recommender, mode, search_string
-        )
+        try:
+            recommendations = self.generate_recommendations(
+                recommender, mode, search_string
+            )
+        except exceptions.InvalidTokenError:
+            self.logger.error("InvalidTokenError")
+            await interaction.followup.send(
+                "There was an error when fetching your recommendations. Please contact the bot owner for assistance.",
+                ephemeral=True,
+            )
+            return
+        except exceptions.RateLimitExceededError:
+            self.logger.warning("RateLimitExceededError")
+            await interaction.followup.send(
+                "The bot is currently rate limited. Please try again later.",
+                ephemeral=True,
+            )
+            time.sleep(300)
+            return
+        except exceptions.UserNotFoundError:
+            await interaction.followup.send(
+                f"User {search_string} not found. Please check the username and try again.",
+                ephemeral=True,
+            )
+            return
+        except NotImplementedError as e:
+            self.logger.error(f"NotImplementedError: {str(e)}")
+            await interaction.followup.send(
+                "There was an error when fetching your recommendations. If this issue persists, please contact the bot owner for assistance.",
+                ephemeral=True,
+            )
+
         recommendations_embeds = [
             self.make_embed(recommendation) for recommendation in recommendations
         ]
