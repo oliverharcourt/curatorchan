@@ -37,7 +37,7 @@ LOGGING_CONFIG = {
         },
         "file": {
             "level": "INFO",
-            "class": "logging.RotatingFileHandler",
+            "class": "logging.handlers.RotatingFileHandler",
             "filename": "logs/curatorchan.log",
             "formatter": "verbose",
             "mode": "a",
