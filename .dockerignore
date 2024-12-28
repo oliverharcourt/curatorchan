@@ -111,3 +111,6 @@
 
 # Ruff config
 .ruff.toml
+
+# Logs
+/logs/
