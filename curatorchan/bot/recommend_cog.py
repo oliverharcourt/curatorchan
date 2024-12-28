@@ -22,6 +22,7 @@ from typing import Literal, Optional
 
 import discord
 import pandas as pd
+import settings
 from anime_recommender import exceptions
 from anime_recommender.recommender import AnimeRecommender
 from discord import app_commands
@@ -29,14 +30,14 @@ from discord.ext import commands
 
 
 class RecommendationCog(commands.Cog):
-    def __init__(self, bot, logger: logging.Logger):
+    def __init__(self, bot):
         self.bot = bot
         self.recommender = AnimeRecommender(config_path="config.json")
-        self.logger = logger
+        self.logger = settings.logging.getLogger("bot")
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("RecommendationCog is ready.")
+        self.logger.info("RecommendationCog is ready.")
 
     @commands.command(name="sync")
     @commands.is_owner()
@@ -46,17 +47,21 @@ class RecommendationCog(commands.Cog):
             if spec == "~":
                 # ctx.bot.tree.copy_global_to(guild=ctx.guild)
                 synced = await ctx.bot.tree.sync(guild=ctx.guild)
-                print(f"Guild sync - commands: {[cmd.name for cmd in synced]}")
+                self.logger.info(
+                    f"Guild sync - commands: {[cmd.name for cmd in synced]}"
+                )
 
             else:
                 synced = await ctx.bot.tree.sync()
-                print(f"Global sync - commands: {[cmd.name for cmd in synced]}")
+                self.logger.info(
+                    f"Global sync - commands: {[cmd.name for cmd in synced]}"
+                )
 
             await ctx.send(
                 f"Synced {len(synced)} command(s) {'to the current guild' if spec is not None else 'globally'}."
             )
         except Exception as e:
-            print(f"Sync error: {e}")
+            self.logger.error(f"Sync error: {e}")
             await ctx.send(f"Failed to sync commands: {str(e)}")
 
     def generate_recommendations(
@@ -143,7 +148,6 @@ class RecommendationCog(commands.Cog):
                 "The bot is currently rate limited. Please try again later.",
                 ephemeral=True,
             )
-            time.sleep(300)
             return
         except exceptions.UserNotFoundError:
             await interaction.followup.send(
@@ -166,20 +170,4 @@ class RecommendationCog(commands.Cog):
 
 
 async def setup(bot):
-    logger = logging.getLogger("curatorchan")
-    logger.setLevel(logging.DEBUG)
-    logging.getLogger("discord.http").setLevel(logging.INFO)
-
-    handler = logging.handlers.RotatingFileHandler(
-        filename="discord.log",
-        encoding="utf-8",
-        maxBytes=32 * 1024 * 1024,  # 32 MiB
-        backupCount=5,  # Rotate through 5 files
-    )
-    dt_fmt = "%Y-%m-%d %H:%M:%S"
-    formatter = logging.Formatter(
-        "[{asctime}] [{levelname:<8}] {name}: {message}", dt_fmt, style="{"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    await bot.add_cog(RecommendationCog(bot, logger))
+    await bot.add_cog(RecommendationCog(bot))
