@@ -59,10 +59,6 @@ class RecommendationCog(commands.Cog):
             print(f"Sync error: {e}")
             await ctx.send(f"Failed to sync commands: {str(e)}")
 
-    @app_commands.command(name="test")
-    async def test(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Test command works!")
-
     def generate_recommendations(
         self, recommender: AnimeRecommender, mode: str, search_string: str
     ) -> pd.DataFrame:
