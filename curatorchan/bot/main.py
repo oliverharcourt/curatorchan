@@ -17,9 +17,11 @@
 # along with Curator-chan.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import logging
 import os
 
 import discord
+import settings
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -56,5 +58,7 @@ if __name__ == "__main__":
     intents.message_content = True
 
     bot = commands.Bot(command_prefix="uwu", description=DESCRIPTION, intents=intents)
+
+    logging.basicConfig(level=logging.INFO)
 
     asyncio.run(main())
