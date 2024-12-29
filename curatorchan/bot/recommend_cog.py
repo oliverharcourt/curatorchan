@@ -97,7 +97,7 @@ class RecommendationCog(commands.Cog):
         # thumbnail = get the thumbnail from mal and add it here
         # make this some color in the thumbnail?
         color = discord.Color.from_rgb(255, 215, 0)
-        nsfw = "🔞 YES" if recommendation["nsfw"] == "black" else "✅ NO"
+        nsfw = "🔞 NSFW" if recommendation["nsfw"] == "black" else "✅ SFW"
         embed = discord.Embed(
             title=recommendation["title"],
             url=recommendation["link"],
