@@ -33,7 +33,7 @@ class RecommendationCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.recommender = AnimeRecommender(config_path="config.json")
-        self.logger = settings.logging.getLogger("bot")
+        self.logger = settings.logging.getLogger("curatorchan")
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -45,7 +45,6 @@ class RecommendationCog(commands.Cog):
         try:
             await ctx.send("Syncing commands...")
             if spec == "~":
-                # ctx.bot.tree.copy_global_to(guild=ctx.guild)
                 synced = await ctx.bot.tree.sync(guild=ctx.guild)
                 self.logger.info(
                     f"Guild sync - commands: {[cmd.name for cmd in synced]}"
@@ -127,7 +126,13 @@ class RecommendationCog(commands.Cog):
         search_string: str,
     ):
         """Get recommendations based on mode and search string."""
+
+        search_string = str(search_string).strip()
+        mode = str(mode).strip()
+
         await interaction.response.defer(ephemeral=True)
+
+        start_time = time.time()
 
         recommender = AnimeRecommender(config_path="config.json")
 
@@ -165,6 +170,12 @@ class RecommendationCog(commands.Cog):
         recommendations_embeds = [
             self.make_embed(recommendation) for recommendation in recommendations
         ]
+
+        end_time = time.time()
+
+        self.logger.info(
+            f"Responded to {search_string} in {mode} mode in {end_time - start_time:.2f} seconds."
+        )
 
         await interaction.followup.send(embeds=recommendations_embeds, ephemeral=True)
 
