@@ -31,5 +31,7 @@ RUN poetry install --no-cache --no-root --only main --no-interaction --no-ansi &
 
 COPY . .
 
+RUN mkdir logs && chmod 777 logs
+
 # Start bot
 CMD ["poetry", "run", "python", "curatorchan/bot/main.py"]
