@@ -53,7 +53,7 @@ class RecommendationCog(commands.Cog):
             else:
                 synced = await ctx.bot.tree.sync()
                 self.logger.info(
-                    f"Global sync - commands: {[cmd.name for cmd in synced]}"
+                    f"Global sync {ctx.guild} - commands: {[cmd.name for cmd in synced]}"
                 )
 
             await ctx.send(
