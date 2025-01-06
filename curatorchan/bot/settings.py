@@ -53,10 +53,15 @@ LOGGING_CONFIG = {
     },
     "loggers": {
         "curatorchan": {
-            "handlers": ["console", "file"],
+            "handlers": ["file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "bot-dev": {
+            "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
-        }
+        },
     },
 }
 
