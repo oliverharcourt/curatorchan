@@ -59,6 +59,7 @@ services:
       - "minio"
 
   curl-runner:
+    container_name: curl-runner
     image: curlimages/curl:latest
     depends_on:
       standalone:
@@ -66,6 +67,7 @@ services:
     command: ["curl", "-X" , "PUT" , "http://standalone:9091/log/level", "-d", "level=warn"]
 
   curatorchan:
+    container_name: curatorchan
     image: oliverharcourt/anime-recommender:dev
     depends_on:
       - standalone
