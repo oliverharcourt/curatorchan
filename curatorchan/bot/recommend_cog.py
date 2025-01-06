@@ -80,13 +80,26 @@ class RecommendationCog(commands.Cog):
             limit=10,
         )
 
+        if isinstance(result, pd.Series):
+            self.logger.debug(f"Result is a series:\n {result}")
+            result = result.to_frame()
+
+        self.logger.debug(f"Result columns: {result.columns}")
+
         dataset = pd.read_json("data/raw/mal_anime_data.json", orient="records")
 
         merged_result = result.merge(dataset, on="id", how="left")
 
         cols = ["title", "distance", "link", "mean", "nsfw"]
 
-        merged_result = merged_result[cols]
+        if set(cols).issubset(merged_result.columns):
+            self.logger.debug(f"Valid result: {merged_result.columns}")
+            merged_result = merged_result[cols]
+        else:
+            self.logger.debug(f"Invalid result: {merged_result.columns}")
+            raise NotImplementedError(
+                "Recommendation generation produced invalid result."
+            )
 
         merged_result["distance"] = merged_result["distance"].apply(
             lambda x: int(round(x, 2) * 10)
