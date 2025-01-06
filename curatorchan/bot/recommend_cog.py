@@ -171,7 +171,7 @@ class RecommendationCog(commands.Cog):
             return
         except exceptions.UserNotFoundError:
             await interaction.followup.send(
-                f"User {search_string} not found. Please check the username and try again.",
+                f"User '{search_string}' not found. Please check the username and try again.",
                 ephemeral=True,
             )
             return
@@ -189,7 +189,7 @@ class RecommendationCog(commands.Cog):
         end_time = time.time()
 
         self.logger.info(
-            f"Responded to {search_string} in {mode} mode in {end_time - start_time:.2f} seconds."
+            f"Responded to '{search_string}' in {mode} mode in {end_time - start_time:.2f} seconds."
         )
 
         await interaction.followup.send(embeds=recommendations_embeds, ephemeral=True)
