@@ -25,6 +25,8 @@ import settings
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from curatorchan.bot.recommend_cog import RecommendationCog
+
 
 def load_secrets():
     env = os.getenv("ENV")
@@ -40,7 +42,11 @@ def load_secrets():
 
 
 async def load_cogs():
-    await bot.load_extension("recommend_cog")
+    await bot.add_cog(
+        RecommendationCog(
+            bot,
+        )  # logger=logger.getChild("RecommendationCog"))
+    )
 
 
 async def main():
