@@ -27,7 +27,8 @@ LOGGING_CONFIG = {
             "format": "%(asctime)s [%(levelname)s] %(module)s: %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
-        "standard": {"format": "%(levelname)s - %(name)s : %(message)s"},
+        "standard": {"format": "[%(levelname)s] - %(module)s : %(message)s"},
+        "debug": {"format": "[%(levelname)s] - (%(name)s) - %(module)s : %(message)s"},
     },
     "handlers": {
         "console": {
