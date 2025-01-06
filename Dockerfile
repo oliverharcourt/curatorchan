@@ -6,6 +6,7 @@ ENV PYTHONFAULTHANDLER=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
+    PYTHONPATH=/app \
     # Poetry's configuration:
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_CACHE_DIR='/var/cache/pypoetry' \
@@ -26,7 +27,7 @@ COPY poetry.lock pyproject.toml ./
 COPY curatorchan/anime-recommender curatorchan/anime-recommender
 
 # Install deps and copy source code
-RUN poetry install --no-cache --no-root --only main --no-interaction --no-ansi && \
+RUN poetry install --no-cache --only main --no-interaction --no-ansi && \
     rm -rf $POETRY_CACHE_DIR
 
 COPY . .
