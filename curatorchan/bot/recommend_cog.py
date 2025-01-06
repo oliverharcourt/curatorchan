@@ -30,10 +30,12 @@ from discord.ext import commands
 
 
 class RecommendationCog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, logger=None):
         self.bot = bot
         self.recommender = AnimeRecommender(config_path="config.json")
-        self.logger = settings.logging.getLogger("curatorchan")
+        self.logger = (
+            settings.logging.getLogger("bot-dev") if logger is None else logger
+        )
 
     @commands.Cog.listener()
     async def on_ready(self):
