@@ -56,6 +56,7 @@ async def main():
 
 if __name__ == "__main__":
     load_secrets()
+
     DESCRIPTION = """
     Curator-chan is a Discord bot that recommends anime to users.
     """
@@ -66,5 +67,11 @@ if __name__ == "__main__":
     bot = commands.Bot(command_prefix="uwu", description=DESCRIPTION, intents=intents)
 
     logging.basicConfig(level=logging.INFO)
+
+    logger_name = "bot-dev" if os.getenv("ENV") == "dev" else "curatorchan"
+
+    logger = settings.logging.getLogger(logger_name)
+
+    logger.info("Starting Curator-chan...")
 
     asyncio.run(main())
