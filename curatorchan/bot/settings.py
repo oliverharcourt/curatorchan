@@ -34,6 +34,11 @@ LOGGING_CONFIG = {
         "console": {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
+            "formatter": "debug",
+        },
+        "console2": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
             "formatter": "standard",
         },
         "file": {
