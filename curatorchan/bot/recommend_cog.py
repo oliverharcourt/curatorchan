@@ -82,7 +82,7 @@ class RecommendationCog(commands.Cog):
 
         dataset = pd.read_json("data/raw/mal_anime_data.json", orient="records")
 
-        merged_result = result.merge(dataset, on="id")
+        merged_result = result.merge(dataset, on="id", how="left")
 
         cols = ["title", "distance", "link", "mean", "nsfw"]
 
