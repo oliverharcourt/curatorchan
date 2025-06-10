@@ -1,17 +1,21 @@
-[tool.poetry]
+[project]
 name = "curatorchan"
 version = "0.1.0"
 description = ""
-authors = ["Oliver Harcourt <96662442+oliverharcourt@users.noreply.github.com>"]
+authors = [{ name = "Oliver Harcourt", email = "96662442+oliverharcourt@users.noreply.github.com" }]
+requires-python = "~=3.11"
 readme = "README.md"
+dependencies = [
+    "discord-py>=2.4.0,<3",
+    "python-dotenv>=1.0.1,<2",
+    "anime-recommender",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-discord-py = "^2.4.0"
-python-dotenv = "^1.0.1"
-anime-recommender = {path = "curatorchan/anime-recommender", develop = true}
+[tool.uv]
 
+[tool.uv.sources]
+anime-recommender = { path = "curatorchan/anime-recommender", editable = true }
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
