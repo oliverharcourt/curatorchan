@@ -88,9 +88,6 @@
 # VS Code
 **/.vscode/
 
-# Experimental code dir
-**/experimental
-
 # Tests
 **/tests/
 
