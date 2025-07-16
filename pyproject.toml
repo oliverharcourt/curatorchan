@@ -1,13 +1,26 @@
 [project]
 name = "curatorchan"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Discord bot for recommending anime."
 readme = "README.md"
 authors = [
     { name = "Oliver Harcourt", email = "96662442+oliverharcourt@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "discord-py>=2.5.2",
+    "google-genai>=1.21.1",
+    "ipykernel>=6.29.5",
+    "kaggle>=1.7.4.5",
+    "kagglehub>=0.3.12",
+    "numpy<2",
+    "pandas>=2.3.0",
+    "python-dotenv>=1.1.0",
+    "scipy>=1.16.0",
+    "seaborn>=0.13.2",
+    "tensorboard>=2.19.0",
+    "torch==2.2",
+]
 
 [project.scripts]
 curatorchan = "curatorchan:main"
