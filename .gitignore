@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# DS_Store
+.DS_Store
+
+# Data directory
+data/
+
+# environment variables
+.env
