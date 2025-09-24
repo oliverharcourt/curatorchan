@@ -17,3 +17,6 @@ data/
 
 # environment variables
 .env
+
+# draw.io backupfiles
+*.drawio.bkp

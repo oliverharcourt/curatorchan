@@ -1,0 +1,70 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
+  <diagram name="Page-1" id="iEGLZk_38ujMkrtkL7gR">
+    <mxGraphModel dx="1370" dy="1158" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-10" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=50;fillColor=#bac8d3;strokeColor=#23445d;" parent="1" vertex="1">
+          <mxGeometry x="250" y="700" width="400" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-8" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=60;fillColor=#bac8d3;strokeColor=#23445d;" parent="1" vertex="1">
+          <mxGeometry x="180" y="437.5" width="540" height="212.5" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-5" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=70;fillColor=#bac8d3;strokeColor=#23445d;" parent="1" vertex="1">
+          <mxGeometry x="110" y="150" width="680" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-3" value="Cosine Similarity Search on LLM Embeddings" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;fontSize=17;" parent="1" vertex="1">
+          <mxGeometry x="210" y="220" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-4" value="Full Text Search (vanilla infret)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="530" y="220" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-6" value="Candidate Generation" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" parent="1" vertex="1">
+          <mxGeometry x="830" y="220" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-7" value="Combine Embedding Similarity with Text Search to Rank Candidates" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d80073;strokeColor=#A50040;fontSize=16;fontColor=#ffffff;" parent="1" vertex="1">
+          <mxGeometry x="370" y="510" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-9" value="Rerank by removing movies, sequels, random/unknown anime, etc." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#008a00;fontColor=#ffffff;strokeColor=#005700;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="370" y="747.5" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-11" value="Ranking" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" parent="1" vertex="1">
+          <mxGeometry x="790" y="517.5" width="230" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="HpBeR4omeMhb7r6IZ19d-12" value="Re-Ranking" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" parent="1" vertex="1">
+          <mxGeometry x="775" y="754" width="260" height="67" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-1" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=50;fillColor=#bac8d3;strokeColor=#23445d;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="700" width="400" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-2" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=60;fillColor=#bac8d3;strokeColor=#23445d;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="437.5" width="540" height="212.5" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-3" value="" style="shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rotation=-180;size=70;fillColor=#bac8d3;strokeColor=#23445d;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="150" width="680" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-4" value="Cosine Similarity Search on LLM Embeddings" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;fontSize=17;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="220" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-5" value="NCF" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1ba1e2;fontColor=#ffffff;strokeColor=#006EAF;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1580" y="220" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-6" value="Candidate Generation" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1880" y="220" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-7" value="Combine Embedding Similarity with Text Search to Rank Candidates" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d80073;strokeColor=#A50040;fontSize=16;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="510" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-8" value="Rerank by removing movies, sequels, random/unknown anime, etc." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#008a00;fontColor=#ffffff;strokeColor=#005700;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="747.5" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-9" value="Ranking" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1840" y="517.5" width="230" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ltpOWqS3HbdNn7tvPQ5m-10" value="Re-Ranking" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1825" y="754" width="260" height="67" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
