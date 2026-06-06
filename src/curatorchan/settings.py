@@ -16,30 +16,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Curator-chan.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
+import os
 from logging.config import dictConfig
+
+os.makedirs("logs", exist_ok=True)
 
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "%(asctime)s [%(levelname)s] %(module)s: %(message)s",
+            "format": "%(asctime)s [%(levelname)s] %(name)s.%(module)s: %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
-        "standard": {"format": "[%(levelname)s] - %(module)s : %(message)s"},
-        "debug": {"format": "[%(levelname)s] - (%(name)s) - %(module)s : %(message)s"},
+        "debug": {
+            "format": "[%(levelname)s] (%(name)s) %(module)s: %(message)s",
+        },
     },
     "handlers": {
         "console": {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "debug",
-        },
-        "console2": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "standard",
         },
         "file": {
             "level": "INFO",

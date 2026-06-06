@@ -21,11 +21,13 @@ import logging
 import os
 
 import discord
-import settings
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from curatorchan.bot.recommend_cog import RecommendationCog
+from curatorchan import (
+    settings as _settings,  # noqa: F401 — imported for logging configuration side effect
+)
+from curatorchan.recommend_cog import RecommendationCog
 
 
 def load_secrets():
@@ -41,17 +43,40 @@ def load_secrets():
         raise ValueError("ENV must be set to 'dev' or 'production'.")
 
 
-async def load_cogs():
+async def load_cogs(bot: commands.Bot, logger: logging.Logger):
     await bot.add_cog(
-        RecommendationCog(
-            bot,
-        )  # logger=logger.getChild("RecommendationCog"))
+        RecommendationCog(bot, logger=logger.getChild("RecommendationCog"))
     )
 
 
-async def main():
-    await load_cogs()
-    await bot.start(os.getenv("DISCORD_TOKEN"))
+async def main(bot: commands.Bot, token: str, logger: logging.Logger):
+    # Catch errors in non-command event handlers (on_message, on_ready, etc.)
+    @bot.event
+    async def on_error(event: str, *args, **kwargs):
+        logger.exception(f"Unhandled error in event '{event}'")
+
+    # Catch unhandled slash command errors and ensure the interaction gets a reply
+    @bot.tree.error
+    async def on_app_command_error(
+        interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+    ):
+        cmd = interaction.command.name if interaction.command else "unknown"
+        logger.exception(
+            f"Unhandled error in app command '{cmd}' "
+            f"[user={interaction.user.id} guild={interaction.guild_id}]",
+            exc_info=error,
+        )
+        msg = "An unexpected error occurred. Please try again later."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+
+    await load_cogs(bot, logger)
+    try:
+        await bot.start(token)
+    finally:
+        logger.info("Curator-chan has shut down.")
 
 
 if __name__ == "__main__":
@@ -62,16 +87,22 @@ if __name__ == "__main__":
     """
 
     intents = discord.Intents.default()
-    intents.message_content = True
 
     bot = commands.Bot(command_prefix="uwu", description=DESCRIPTION, intents=intents)
 
-    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__file__)
 
-    logger_name = "bot-dev" if os.getenv("ENV") == "dev" else "curatorchan"
-
-    logger = settings.logging.getLogger(logger_name)
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise ValueError("DISCORD_TOKEN environment variable is not set.")
 
     logger.info("Starting Curator-chan...")
 
-    asyncio.run(main())
+    try:
+        asyncio.run(main(bot, token, logger))
+    except discord.LoginFailure:
+        logger.critical("Invalid Discord token — check DISCORD_TOKEN and try again.")
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user.")
+    except Exception:
+        logger.exception("Fatal error during bot startup or runtime.")

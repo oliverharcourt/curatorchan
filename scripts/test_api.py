@@ -9,9 +9,9 @@ load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 response = client.models.embed_content(
-    model="gemini-embedding-exp-03-07",
-    contents="The quick brown fox jumps over the lazy dog.",
-    config=types.EmbedContentConfig(output_dimensionality=1536),
+    model="gemini-embedding-001",
+    contents=["The quick brown fox jumps over the lazy dog."] * 5,
+    config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
 )
 
-print(len(response.embeddings[0].values))
+print([len(e.values) for e in response.embeddings])
