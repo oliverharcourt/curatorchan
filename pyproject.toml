@@ -16,6 +16,7 @@ dependencies = [
     "kagglehub>=0.3.12",
     "numpy>=1.26.4",
     "pandas>=2.3.0",
+    "pyarrow>=24.0.0",
     "python-dotenv>=1.1.0",
     "scikit-learn>=1.8.0",
     "scipy>=1.16.0",
