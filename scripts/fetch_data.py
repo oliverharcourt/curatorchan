@@ -17,13 +17,24 @@ Outputs (in --data-dir, default ../data):
   users.csv             one row per kept user (profile aggregates)
   user_anime_lists.csv  one row per (user, anime) list entry; score uses the
                         POINT_100 scale, 0 = unscored
-  media.csv             anime/manga catalogue (target "media")
+  media.csv             anime catalogue (target "media"), one row per anime
   fetch_state.json      resume state for the user scrape
+
+The media scrape fetches the anime catalogue by id, in batches of 50 via the
+`id_in` filter, reading the ids to fetch from a prior media.csv (--ids-csv).
+AniList now caps offset pagination at 5000 entries ("Page depth exceeds maximum
+allowed"), so the catalogue can no longer be walked with a plain `sort:ID` page
+counter; id-batching sidesteps the cap. Anime added to AniList since the id
+source was built are discovered first (ids above the highest known id, found by
+paging ID_DESC) and folded into the work list; pass --no-discover to skip this.
+The output resumes automatically (ids already present in media.csv are skipped)
+and --fresh starts over.
 
 Run from inside scripts/:
   uv run python fetch_data.py users               # resumes automatically
   uv run python fetch_data.py users --max-pages 100
-  uv run python fetch_data.py media
+  uv run python fetch_data.py media               # ids from ../data/raw/media.csv, + new
+  uv run python fetch_data.py media --no-discover  # only ids already in --ids-csv
 """
 
 import argparse
@@ -46,6 +57,7 @@ API_URL = "https://graphql.anilist.co"
 PER_PAGE = 50  # server-side maximum for Page queries
 PER_CHUNK = 500  # server-side maximum for MediaListCollection chunks
 MAX_CHUNKS = 40  # safety bound per user (40 * 500 = 20k entries)
+MAX_LIST_PAGES = 400  # safety bound for the paginated fallback (400 * 50 = 20k)
 DEFAULT_RPM = 30  # the API is currently degraded to 30 req/min
 MAX_RPM = 90  # normal limit; the advertised limit is picked up from headers
 # Use only this fraction of the per-minute budget. Pacing right at the cap
@@ -54,7 +66,9 @@ MAX_RPM = 90  # normal limit; the advertised limit is picked up from headers
 # setting whose worst-case window stays clear of the remaining<=3 soft brake;
 # anything above trades steady throughput for stalls.
 SAFETY_FACTOR = 0.85
-MEDIA_CHECKPOINT_PAGES = 50
+MEDIA_BATCH_SIZE = PER_PAGE  # ids per id_in request (Page perPage caps at 50)
+MEDIA_CHECKPOINT_BATCHES = 20  # flush every 20 batches (~1000 anime)
+MAX_DISCOVERY_PAGES = 100  # 100 * 50 = 5000, the API's offset-pagination cap
 
 REQUEST_HEADERS = {
     "Content-Type": "application/json",
@@ -73,6 +87,37 @@ USER_COLUMNS = [
     "list_entries",
 ]
 ENTRY_COLUMNS = ["user_id", "media_id", "status", "score", "progress", "repeat"]
+# Column order for media.csv. Nested fields (title/tags/relations/studios/stats/
+# dates) are written as their Python-repr, matching how the catalogue has always
+# been stored; clean_data.py parses them back to native objects.
+MEDIA_COLUMNS = [
+    "id",
+    "idMal",
+    "type",
+    "title",
+    "description",
+    "genres",
+    "synonyms",
+    "tags",
+    "isAdult",
+    "format",
+    "source",
+    "season",
+    "seasonYear",
+    "episodes",
+    "duration",
+    "countryOfOrigin",
+    "averageScore",
+    "meanScore",
+    "popularity",
+    "favourites",
+    "relations",
+    "studios",
+    "startDate",
+    "endDate",
+    "updatedAt",
+    "stats",
+]
 
 USER_PAGE_QUERY = """
 query UserPage($page: Int, $perPage: Int) {
@@ -114,14 +159,36 @@ query UserList($userId: Int, $chunk: Int, $perChunk: Int) {
 }
 """
 
-MEDIA_QUERY = """
-query MediaPage($page: Int, $perPage: Int) {
+# Fallback for users whose list reproducibly 500s on MediaListCollection: the
+# flat, paginated mediaList endpoint resolves the same entries one page at a
+# time. Same fields, so it yields identical rows.
+USER_LIST_PAGE_QUERY = """
+query UserListPage($userId: Int, $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(sort: ID) {
+    mediaList(userId: $userId, type: ANIME) {
+      mediaId
+      status
+      score(format: POINT_100)
+      progress
+      repeat
+    }
+  }
+}
+"""
+
+# Fetched by id (id_in, batches of 50) rather than by paging sort:ID, because
+# AniList caps offset pagination at 5000 entries. relations now carries the
+# relationType on each edge (the previous nodes-only form lost it); studios,
+# statusDistribution, and the extra metadata fields are new this scrape.
+MEDIA_QUERY = """
+query MediaByIds($ids: [Int], $perPage: Int) {
+  Page(perPage: $perPage) {
+    media(id_in: $ids, type: ANIME, sort: ID) {
       id
+      idMal
       type
       title {
         native
@@ -130,23 +197,46 @@ query MediaPage($page: Int, $perPage: Int) {
       }
       description
       genres
+      synonyms
       tags {
         id
         name
         category
-        isAdult
         description
         rank
+        isGeneralSpoiler
+        isMediaSpoiler
+        isAdult
+        userId
       }
       isAdult
       format
+      source
+      season
+      seasonYear
+      episodes
+      duration
+      countryOfOrigin
+      averageScore
       meanScore
       popularity
+      favourites
       relations {
-        nodes {
-          id
-          title {
-            english
+        edges {
+          relationType
+          node {
+            id
+            type
+          }
+        }
+      }
+      studios {
+        edges {
+          isMain
+          node {
+            id
+            name
+            isAnimationStudio
           }
         }
       }
@@ -156,14 +246,34 @@ query MediaPage($page: Int, $perPage: Int) {
       endDate {
         year
       }
-      season
       updatedAt
       stats {
         scoreDistribution {
-          amount
           score
+          amount
+        }
+        statusDistribution {
+          status
+          amount
         }
       }
+    }
+  }
+}
+"""
+
+# Discovery query: just the ids of the newest anime. AniList assigns media ids
+# in increasing order, so anime added since the last scrape have ids above the
+# highest id we already know. Paging type:ANIME by ID_DESC walks the newest
+# entries first, so the scan can stop the moment it reaches known ids.
+MEDIA_DISCOVERY_QUERY = """
+query NewAnime($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+    }
+    media(type: ANIME, sort: ID_DESC) {
+      id
     }
   }
 }
@@ -224,10 +334,10 @@ def make_request(query, variables, limiter, max_failures=5, max_backoff=60):
                 timeout=30,
             )
         except requests.RequestException as e:
-            logger.error(f"Error during post request: {e}")
+            logger.error(f"Error during post request for {variables}: {e}")
             failures += 1
             if failures >= max_failures:
-                raise RuntimeError("Max failures reached while making request")
+                raise RuntimeError(f"Max failures reached for request {variables}")
             time.sleep(backoff)
             backoff = min(backoff * 2, max_backoff)
             continue
@@ -251,14 +361,52 @@ def make_request(query, variables, limiter, max_failures=5, max_backoff=60):
             return None
 
         logger.error(
-            f"Request failed with status code {response.status_code}: "
-            f"{response.text[:200]}"
+            f"Request failed with status code {response.status_code} for "
+            f"{variables}: {response.text[:200]}"
         )
         failures += 1
         if failures >= max_failures:
-            raise RuntimeError("Max failures reached while making request")
+            raise RuntimeError(f"Max failures reached for request {variables}")
         time.sleep(backoff)
         backoff = min(backoff * 2, max_backoff)
+
+
+# Trivial query against a stable id — used as a liveness probe to tell a
+# transient API outage apart from a cluster of genuinely-broken users.
+HEALTH_QUERY = "query { Media(id: 1) { id } }"
+HEALTH_WAIT_BUDGET = 1800  # give a sustained outage this long to recover, then stop
+
+
+def api_is_healthy(limiter):
+    """True if the API answers the trivial health query right now."""
+    try:
+        response = make_request(HEALTH_QUERY, {}, limiter, max_failures=1)
+    except RuntimeError:
+        return False
+    return bool(response and (response.get("data") or {}).get("Media"))
+
+
+def wait_until_healthy(limiter, max_wait=HEALTH_WAIT_BUDGET):
+    """Block until a health probe succeeds, or give up after max_wait seconds.
+
+    Returns True the moment the API answers (immediately if it never went down),
+    or False once a sustained outage outlasts the budget. Sleeps with capped
+    exponential backoff between probes so we neither hammer nor drift.
+    """
+    waited = 0
+    delay = 30
+    while True:
+        if api_is_healthy(limiter):
+            return True
+        if waited >= max_wait:
+            return False
+        logger.warning(
+            f"API health probe failed; outage suspected, waiting {delay}s "
+            f"(waited {waited}s of {max_wait}s)"
+        )
+        time.sleep(delay)
+        waited += delay
+        delay = min(delay * 2, 300)
 
 
 def append_csv(rows, path, columns):
@@ -296,23 +444,98 @@ def load_harvested_ids(users_csv):
         )
 
 
-def fetch_user_list(user_id, limiter):
-    """Fetch a user's complete anime list, deduplicated by media id.
+def load_anime_ids(ids_csv):
+    """Anime media ids to (re)scrape, taken from a prior media.csv.
 
-    Returns [] for private, empty, or deleted accounts.
+    The `type` column selects ANIME rows. This is the work list for the media
+    scrape: AniList caps offset pagination at 5000 entries, so the catalogue is
+    fetched by `id_in` over ids we already know rather than by paging `sort:ID`.
+    Returns a deduplicated, sorted list so resume batches line up run to run.
+    """
+    if not os.path.exists(ids_csv):
+        raise SystemExit(
+            f"Id source {ids_csv} not found. Point --ids-csv at a prior media.csv "
+            "(the completed catalogue scrape) to supply the anime ids to fetch."
+        )
+    try:
+        df = pd.read_csv(ids_csv, usecols=["id", "type"])
+    except ValueError as e:
+        raise SystemExit(f"{ids_csv} lacks the id/type columns this scraper needs: {e}")
+    ids = df.loc[df["type"] == "ANIME", "id"].dropna().astype(int)
+    return sorted(set(ids))
+
+
+def discover_new_media_ids(limiter, watermark):
+    """Anime ids newer than `watermark` (the highest id we already know).
+
+    Pages type:ANIME by ID_DESC (newest first) and stops as soon as a page
+    reaches ids at or below the watermark, since everything beyond is already
+    known. Stays under the 5000-entry pagination cap as long as fewer than that
+    many anime were added since the watermark. Returns the new ids (descending).
+    """
+    new_ids = []
+    for page in range(1, MAX_DISCOVERY_PAGES + 1):
+        response = make_request(
+            MEDIA_DISCOVERY_QUERY, {"page": page, "perPage": PER_PAGE}, limiter
+        )
+        if response is None or not (response.get("data") or {}).get("Page"):
+            if not wait_until_healthy(limiter):
+                raise RuntimeError(f"Anime discovery failed; API down on page {page}")
+            continue  # transient blip — retry the same page
+        page_data = response["data"]["Page"]
+        ids = [m["id"] for m in page_data["media"]]
+        fresh = [i for i in ids if i > watermark]
+        new_ids.extend(fresh)
+        # A page that includes ids at/below the watermark means we've crossed
+        # into already-known territory; nothing newer remains.
+        if len(fresh) < len(ids) or not page_data["pageInfo"]["hasNextPage"]:
+            break
+    else:
+        logger.warning(
+            f"Discovery hit the {MAX_DISCOVERY_PAGES}-page cap before reaching "
+            f"the watermark (id {watermark}); more than "
+            f"~{MAX_DISCOVERY_PAGES * PER_PAGE} new anime — some ids may be missed."
+        )
+    return new_ids
+
+
+def load_fetched_media_ids(media_csv):
+    """Anime ids already written to media.csv, used to resume mid-scrape."""
+    if not os.path.exists(media_csv):
+        return set()
+    try:
+        return set(pd.read_csv(media_csv, usecols=["id"])["id"].astype(int))
+    except ValueError:
+        return set()
+
+
+def append_media(rows, media_csv):
+    if not rows:
+        return
+    pd.DataFrame(rows, columns=MEDIA_COLUMNS).to_csv(
+        media_csv, mode="a", header=not os.path.exists(media_csv), index=False
+    )
+
+
+def _entries_via_collection(user_id, limiter):
+    """Chunked MediaListCollection fetch. Returns a {mediaId: entry} dict, or
+    None for a private/deleted account. Raises RuntimeError if the endpoint
+    keeps erroring (some lists reproducibly 500 here). Uses a small retry
+    budget so a reproducible failure falls back quickly instead of stalling.
     """
     entries = {}
-    for _chunk in range(1, MAX_CHUNKS + 1):
+    for chunk in range(1, MAX_CHUNKS + 1):
         response = make_request(
             USER_LIST_QUERY,
-            {"userId": user_id, "chunk": _chunk, "perChunk": PER_CHUNK},
+            {"userId": user_id, "chunk": chunk, "perChunk": PER_CHUNK},
             limiter,
+            max_failures=2,
         )
         if response is None:
-            return []
+            return None
         collection = (response.get("data") or {}).get("MediaListCollection")
         if collection is None:
-            return []
+            return None
         # Custom lists repeat entries from the status lists; dedupe by media id.
         for group in collection.get("lists") or []:
             for entry in group.get("entries") or []:
@@ -321,6 +544,53 @@ def fetch_user_list(user_id, limiter):
             break
     else:
         logger.warning(f"User {user_id} exceeded {MAX_CHUNKS} chunks; list truncated")
+    return entries
+
+
+def _entries_via_pages(user_id, limiter):
+    """Paginated mediaList fetch — the fallback endpoint. Same return contract
+    as _entries_via_collection."""
+    entries = {}
+    for page in range(1, MAX_LIST_PAGES + 1):
+        response = make_request(
+            USER_LIST_PAGE_QUERY,
+            {"userId": user_id, "page": page, "perPage": PER_PAGE},
+            limiter,
+        )
+        if response is None:
+            return None
+        page_data = (response.get("data") or {}).get("Page")
+        if page_data is None:
+            return None
+        for entry in page_data.get("mediaList") or []:
+            entries.setdefault(entry["mediaId"], entry)
+        if not page_data["pageInfo"]["hasNextPage"]:
+            break
+    else:
+        logger.warning(
+            f"User {user_id} exceeded {MAX_LIST_PAGES} pages; list truncated"
+        )
+    return entries
+
+
+def fetch_user_list(user_id, limiter):
+    """Fetch a user's complete anime list, deduplicated by media id.
+
+    Tries the chunked MediaListCollection endpoint first, then falls back to the
+    paginated mediaList endpoint for users whose list reproducibly errors there
+    (some lists 500 on MediaListCollection but resolve fine page by page).
+    Returns [] for private, empty, or deleted accounts. Raises RuntimeError only
+    if both endpoints fail, so the caller can skip the user and retry later.
+    """
+    try:
+        entries = _entries_via_collection(user_id, limiter)
+    except RuntimeError:
+        logger.warning(
+            f"User {user_id}: MediaListCollection failed; trying paginated mediaList"
+        )
+        entries = _entries_via_pages(user_id, limiter)
+    if not entries:
+        return []
     return [
         (user_id, e["mediaId"], e["status"], e["score"], e["progress"], e["repeat"])
         for e in entries.values()
@@ -412,34 +682,95 @@ def scrape_users(limiter, data_dir, max_pages=None, fresh=False):
         logger.info("Reached the last user page; scrape complete.")
 
 
-def scrape_media(limiter, data_dir, start_page=1, max_pages=None):
+def scrape_media(
+    limiter, data_dir, ids_csv, max_batches=None, fresh=False, discover=True
+):
+    """Fetch the anime catalogue by id, in batches of 50 via id_in.
+
+    Reads the anime ids to fetch from a prior media.csv (ids_csv) and, unless
+    discover is False, also pulls in anime added to AniList since that scrape
+    (ids above the highest known id). Skips ids already present in the output and
+    appends new rows in checkpoints so a crashed run resumes by rerunning.
+    --fresh discards the existing output.
+    """
     media_csv = os.path.join(data_dir, "media.csv")
     os.makedirs(data_dir, exist_ok=True)
 
-    data = []
-    page = start_page
-    pages_done = 0
-    has_next_page = True
-    pbar = tqdm(desc="Fetching media", unit="page")
-    while has_next_page and (max_pages is None or pages_done < max_pages):
-        response = make_request(
-            MEDIA_QUERY, {"page": page, "perPage": PER_PAGE}, limiter
+    if os.path.abspath(ids_csv) == os.path.abspath(media_csv) and not fresh:
+        raise SystemExit(
+            f"--ids-csv and the output {media_csv} are the same file, so resume "
+            "would treat every id as already fetched. Use a different --data-dir, "
+            "or --fresh to rescrape from scratch."
         )
-        if response is None or not response.get("data"):
-            raise RuntimeError(f"Media fetch failed permanently on page {page}")
-        page_data = response["data"]["Page"]
-        data.extend(page_data["media"])
-        has_next_page = page_data["pageInfo"]["hasNextPage"]
-        page += 1
-        pages_done += 1
-        pbar.update(1)
-        if pages_done % MEDIA_CHECKPOINT_PAGES == 0:
-            pd.DataFrame(data).to_csv(media_csv, index=False)
-            logger.info(f"Checkpointed {len(data)} media records to {media_csv}")
-    pbar.close()
 
-    pd.DataFrame(data).to_csv(media_csv, index=False)
-    logger.info(f"Saved {len(data)} media records to {media_csv}")
+    # Load the work list before any --fresh deletion (the id source may itself
+    # be the output of a previous run).
+    all_ids = load_anime_ids(ids_csv)
+
+    if discover:
+        watermark = max(all_ids) if all_ids else 0
+        new_ids = discover_new_media_ids(limiter, watermark)
+        logger.info(f"Discovered {len(new_ids)} anime newer than id {watermark}")
+        all_ids = sorted(set(all_ids) | set(new_ids))
+
+    if fresh and os.path.exists(media_csv):
+        os.remove(media_csv)
+        logger.info(f"Removed {media_csv}")
+
+    fetched = load_fetched_media_ids(media_csv)
+    todo = [i for i in all_ids if i not in fetched]
+    batches = [
+        todo[i : i + MEDIA_BATCH_SIZE] for i in range(0, len(todo), MEDIA_BATCH_SIZE)
+    ]
+    if max_batches is not None:
+        batches = batches[:max_batches]
+    logger.info(
+        f"{len(all_ids)} anime ids; {len(fetched)} already fetched; "
+        f"{len(todo)} to fetch in {len(batches)} batches of {MEDIA_BATCH_SIZE}"
+    )
+
+    buffer = []
+    batches_done = 0
+    pbar = tqdm(total=len(batches), desc="Fetching media", unit="batch")
+    try:
+        for batch in batches:
+            response = make_request(
+                MEDIA_QUERY, {"ids": batch, "perPage": MEDIA_BATCH_SIZE}, limiter
+            )
+            # A null Page can be a site-wide outage or a transient blip; tell
+            # them apart with a liveness probe before failing the whole run.
+            if response is None or not (response.get("data") or {}).get("Page"):
+                if not wait_until_healthy(limiter):
+                    raise RuntimeError(
+                        f"Media fetch failed and the API stayed down "
+                        f"(batch starting at id {batch[0]})"
+                    )
+                response = make_request(
+                    MEDIA_QUERY, {"ids": batch, "perPage": MEDIA_BATCH_SIZE}, limiter
+                )
+                if response is None or not (response.get("data") or {}).get("Page"):
+                    raise RuntimeError(
+                        f"Media fetch failed permanently for batch starting at "
+                        f"id {batch[0]}"
+                    )
+            buffer.extend(response["data"]["Page"]["media"])
+            batches_done += 1
+            pbar.update(1)
+
+            # Checkpoint: append harvested rows; resume skips them via the
+            # ids already in media.csv.
+            if batches_done % MEDIA_CHECKPOINT_BATCHES == 0:
+                append_media(buffer, media_csv)
+                logger.info(f"Checkpointed {len(buffer)} media records to {media_csv}")
+                buffer.clear()
+    except KeyboardInterrupt:
+        logger.info("Interrupted — checkpointing; rerun to resume.")
+    finally:
+        append_media(buffer, media_csv)
+        buffer.clear()
+        pbar.close()
+
+    logger.info(f"Media scrape finished; output at {media_csv}")
 
 
 if __name__ == "__main__":
@@ -455,10 +786,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--fresh",
         action="store_true",
-        help="users only: discard previous state and outputs, start from page 1.",
+        help="discard previous outputs and start over (users: also resets the "
+        "discovery state; media: deletes media.csv before refetching).",
     )
     parser.add_argument(
-        "--start-page", type=int, default=1, help="media only: first page to fetch."
+        "--ids-csv",
+        default="../data/raw/media.csv",
+        help="media only: prior media.csv supplying the anime ids to (re)fetch.",
+    )
+    parser.add_argument(
+        "--max-batches",
+        type=int,
+        default=None,
+        help="media only: stop after this many 50-id batches (e.g. for testing).",
+    )
+    parser.add_argument(
+        "--no-discover",
+        action="store_true",
+        help="media only: skip discovering anime added since the id source was "
+        "built; only (re)fetch ids already in --ids-csv.",
     )
     args = parser.parse_args()
 
@@ -467,5 +813,10 @@ if __name__ == "__main__":
         scrape_users(limiter, args.data_dir, max_pages=args.max_pages, fresh=args.fresh)
     else:
         scrape_media(
-            limiter, args.data_dir, start_page=args.start_page, max_pages=args.max_pages
+            limiter,
+            args.data_dir,
+            args.ids_csv,
+            max_batches=args.max_batches,
+            fresh=args.fresh,
+            discover=not args.no_discover,
         )

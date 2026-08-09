@@ -59,9 +59,13 @@ logger = logging.getLogger(__name__)
 # Catalogue columns the scraper stored as Python reprs (lists / dicts).
 REPR_COLUMNS = ("title", "genres", "tags", "startDate", "relations", "stats")
 
-# AniList relationType values that keep two anime in the same franchise. Only
-# applied once relations are re-scraped with relationType (see
-# compute_franchise_ids); the current type-less scrape ignores this.
+# MediaRelation values that keep two anime in the same franchise. The complete
+# enum is ADAPTATION, PREQUEL, SEQUEL, PARENT, SIDE_STORY, CHARACTER, SUMMARY,
+# ALTERNATIVE, SPIN_OFF, OTHER, SOURCE, COMPILATION, CONTAINS. Only the strong
+# story links below are kept; weak ties (CHARACTER, OTHER, SPIN_OFF, the
+# anime<->source ADAPTATION/SOURCE links) are dropped so a shared character or
+# loose tie-in can't merge unrelated franchises. COMPILATION/CONTAINS are left
+# out too — add them if recap compilations should fold into the franchise.
 FRANCHISE_RELATION_TYPES = frozenset(
     {
         "PREQUEL",
@@ -69,7 +73,6 @@ FRANCHISE_RELATION_TYPES = frozenset(
         "SIDE_STORY",
         "PARENT",
         "ALTERNATIVE",
-        "FULL_STORY",
         "SUMMARY",
     }
 )
@@ -124,19 +127,19 @@ def compute_franchise_ids(
     through non-catalogue nodes (manga, unscraped anime) was measured to change
     almost nothing, so only catalogue-internal edges are added.
 
-    Caveat: the scrape did not capture AniList relationType, so weak links (a
-    shared character, an "Other" relation) are indistinguishable from sequels,
-    and a single bad edge merges unrelated franchises (Evangelion and Gundam
-    currently land in one 445-title component). Re-scrape relations with
-    `edges { relationType node { id } }`, store the type on each node, and pass
-    keep_relation_types=FRANCHISE_RELATION_TYPES to collapse those blobs.
+    relationType is now captured per relation edge, so passing
+    keep_relation_types=FRANCHISE_RELATION_TYPES keeps only strong story links
+    (sequels, side stories, ...) and drops weak ones (a shared CHARACTER, an
+    OTHER relation) that would otherwise merge unrelated franchises — the kind of
+    link that once collapsed Evangelion and Gundam into one 445-title component.
 
     Args:
-        df: Catalogue with an `id` column and a parsed `relations` column
-            (`{"nodes": [{"id": ..., "relationType"?: ...}, ...]}`).
+        df: Catalogue with an `id` column and a parsed `relations` column in the
+            scraper's shape:
+            `{"edges": [{"relationType": ..., "node": {"id": ...}}, ...]}`.
         keep_relation_types: If given, only relations whose `relationType` is in
-            this set become edges; relations without a type are skipped. If
-            None, every relation is an edge.
+            this set become graph edges; the rest are skipped. If None, every
+            relation becomes an edge.
 
     Returns:
         An int array of franchise labels, one per row of df.
@@ -148,13 +151,14 @@ def compute_franchise_ids(
     rows: list[int] = []
     cols: list[int] = []
     for pos, rel in enumerate(df["relations"]):
-        nodes = rel.get("nodes") if isinstance(rel, dict) else None
-        for node in nodes or []:
+        edges = rel.get("edges") if isinstance(rel, dict) else None
+        for edge in edges or []:
             if (
                 keep_relation_types is not None
-                and node.get("relationType") not in keep_relation_types
+                and edge.get("relationType") not in keep_relation_types
             ):
                 continue
+            node = edge.get("node") or {}
             j = id_to_pos.get(node.get("id"))
             if j is not None:
                 rows.append(pos)
@@ -265,7 +269,9 @@ def main(args: argparse.Namespace) -> None:
         batch.text_feat, batch_size=args.batch_size, show_progress_bar=True
     )
 
-    franchise_ids = compute_franchise_ids(df)
+    franchise_ids = compute_franchise_ids(
+        df, keep_relation_types=FRANCHISE_RELATION_TYPES
+    )
     counts = np.unique(franchise_ids, return_counts=True)[1]
     logger.info(
         f"Grouped {len(df)} anime into {len(counts)} franchises "
@@ -273,8 +279,8 @@ def main(args: argparse.Namespace) -> None:
     )
     if counts.max() > 50:
         logger.warning(
-            "Largest franchise spans %d titles: relations lack relationType, so "
-            "weak links over-merge distinct franchises (see compute_franchise_ids).",
+            "Largest franchise still spans %d titles after relationType "
+            "filtering; inspect it for a spurious strong link.",
             counts.max(),
         )
 

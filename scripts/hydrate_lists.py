@@ -6,13 +6,26 @@ show no activity (zero minutes watched, empty scores and statuses buckets)
 are skipped.
 
 Users whose hydration comes back empty (private, deleted or empty lists) are
-dropped and remembered in the state file so they are never polled again.
+dropped and remembered in the state file so they are never polled again. A
+user whose list request keeps failing with a server error (e.g. a 500, which
+may be a transient AniList issue or one problematic list) is skipped without
+being remembered, so a later run retries it. If failures pile up back-to-back
+the script probes the API: if it is up the broken users are skipped and the
+crawl continues; if it is down the script waits for it to recover and only
+stops (cleanly, resumable) once an outage outlasts the wait budget.
 Harvested rows are stored as a Parquet dataset: every checkpoint writes
 one immutable part file, so re-running the script resumes from where it left
 off; once --compact-every part files pile up they are merged into one larger
 compacted file to keep the file count bounded. A user_anime_lists.csv left
 over from a pre-Parquet run is converted into part files on startup and
 renamed to user_anime_lists.csv.migrated.
+
+Designed for a small-memory box: the full dataset is never held in memory.
+Compaction merges only the small per-checkpoint part files and streams them
+through one at a time (never the large compacted files), so merge memory stays
+flat as the dataset grows. Resume reads back only the user_id column, one file
+at a time, and the one-off CSV migration is chunked — so peak memory is bounded
+by the per-file size, not the dataset size.
 
 Outputs (in --out-dir, default: the directory of --users-csv):
   user_anime_lists/     Parquet dataset, one part file per checkpoint; one row
@@ -31,11 +44,13 @@ import shutil
 import sys
 
 import pandas as pd
+import pyarrow.parquet as pq
 from fetch_data import (
     ENTRY_COLUMNS,
     RateLimiter,
     fetch_user_list,
     save_state,
+    wait_until_healthy,
 )
 from tqdm import tqdm
 
@@ -50,7 +65,8 @@ INACTIVE_PREFIX = (
 
 CHECKPOINT_USERS = 25  # flush data + state every this many polled users
 COMPACT_EVERY = 40  # merge per-checkpoint part files once this many accumulate
-MIGRATE_CHUNK_ROWS = 1_000_000  # rows per part file when converting a legacy CSV
+MIGRATE_CHUNK_ROWS = 250_000  # rows held in memory at once when converting a CSV
+MAX_CONSECUTIVE_FAILURES = 5  # this many back-to-back errors means the API is down
 
 PART_NAME = re.compile(r"part-(\d+)\.parquet")
 COMPACT_NAME = re.compile(r"compact-(\d+)-(\d+)\.parquet")
@@ -111,23 +127,40 @@ def next_part_index(parts_dir):
 def compact_parts(parts_dir):
     """Merge the accumulated per-checkpoint part files into one file.
 
-    The compacted file's name records the part-index range it absorbed, so a
-    crash between writing it and deleting its sources is healed by
-    clean_parts_dir() on the next startup instead of duplicating rows.
+    Only the small loose part-* files are merged (never the large compacted
+    files), and they are streamed through a single writer one at a time, so
+    compaction never loads more than one part file into memory regardless of
+    how big the dataset has grown. Written atomically to a .tmp first; the
+    compacted file's name records the part-index range it absorbed, so a crash
+    between writing it and deleting its sources is healed by clean_parts_dir()
+    on the next startup instead of duplicating rows.
     """
     parts = live_parts(parts_dir)
     if len(parts) < 2:
         return
     lo, hi = min(parts), max(parts)
-    df = pd.concat(
-        [pd.read_parquet(parts[i]) for i in sorted(parts)], ignore_index=True
-    )
-    write_part(df, os.path.join(parts_dir, f"compact-{lo:05d}-{hi:05d}.parquet"))
+    out = os.path.join(parts_dir, f"compact-{lo:05d}-{hi:05d}.parquet")
+    tmp = out + ".tmp"
+    rows = 0
+    writer = None
+    try:
+        # All part files share one schema (every part goes through write_part),
+        # so the writer built from the first part accepts the rest.
+        for i in sorted(parts):
+            table = pq.read_table(parts[i])
+            if writer is None:
+                writer = pq.ParquetWriter(tmp, table.schema)
+            writer.write_table(table)
+            rows += table.num_rows
+    finally:
+        if writer is not None:
+            writer.close()
+    os.replace(tmp, out)
     for path in parts.values():
         os.remove(path)
     logger.info(
         f"Compacted {len(parts)} part files into "
-        f"compact-{lo:05d}-{hi:05d}.parquet ({len(df)} rows)"
+        f"compact-{lo:05d}-{hi:05d}.parquet ({rows} rows)"
     )
 
 
@@ -235,8 +268,8 @@ def hydrate(
     limiter = RateLimiter()
     entry_buffer = []
     next_part = next_part_index(parts_dir)
-    polled = kept = inactive_count = 0
-    polled_since_flush = 0
+    polled = kept = inactive_count = failed = 0
+    polled_since_flush = consecutive_failures = 0
 
     def checkpoint():
         # Flush data first, then the state; on a crash in between, the
@@ -263,7 +296,33 @@ def hydrate(
             if max_users is not None and polled >= max_users:
                 break
 
-            rows = fetch_user_list(user_id, limiter)
+            try:
+                rows = fetch_user_list(user_id, limiter)
+            except RuntimeError as exc:
+                # One user erroring out (e.g. a server-side 500) must not kill a
+                # multi-day crawl. Skip it — it is not added to harvested or
+                # empty_ids, so a later run retries it.
+                failed += 1
+                consecutive_failures += 1
+                logger.warning(f"User {user_id} failed after retries: {exc}")
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    # Back-to-back failures are either a transient API outage or
+                    # a cluster of broken users. Probe to tell them apart, saving
+                    # progress first in case the probe has to wait a long time.
+                    checkpoint()
+                    if wait_until_healthy(limiter):
+                        # API is up: those specific users are the problem, so
+                        # skip past them (a later run retries them). If it had
+                        # been an outage, this returns once it recovers.
+                        logger.info("API healthy; skipping failed users, continuing")
+                        consecutive_failures = 0
+                        continue
+                    logger.error(
+                        "API still down after waiting — stopping; rerun to resume."
+                    )
+                    break
+                continue
+            consecutive_failures = 0
             polled += 1
             polled_since_flush += 1
             if rows:
@@ -275,7 +334,9 @@ def hydrate(
 
             if polled_since_flush >= CHECKPOINT_USERS:
                 checkpoint()
-                pbar.set_postfix(polled=polled, kept=kept, inactive=inactive_count)
+                pbar.set_postfix(
+                    polled=polled, kept=kept, inactive=inactive_count, failed=failed
+                )
     except KeyboardInterrupt:
         logger.info("Interrupted — flushing progress; rerun to resume.")
     finally:
@@ -284,7 +345,8 @@ def hydrate(
 
     logger.info(
         f"Done: polled {polled} users, kept {kept}, "
-        f"{polled - kept} empty/private, {inactive_count} skipped as inactive"
+        f"{polled - kept} empty/private, {inactive_count} skipped as inactive, "
+        f"{failed} failed (will retry on rerun)"
     )
 
 
